@@ -1,8 +1,8 @@
 
-# Installing
+### Installing
 - To install `ncnn`, `yolo`, `eigen`, ... please follow (yolo-ncnn-cpp)[https://github.com/trinhtuanvubk/yolo-ncnn-cpp]
 
-# Build
+### Build
 - To build:
 ```bash
 mkdir build
@@ -11,7 +11,7 @@ cmake ..
 make
 ```
 
-# Run
+### Run
 - To run:
 ```bash
 ./bytetrack ../palace.mp4
