@@ -187,9 +187,9 @@ static int detect_yolov5(const cv::Mat& bgr, std::vector<Object>& objects)
 
 	// original pretrained model from https://github.com/ultralytics/yolov5
 	// the ncnn model https://github.com/nihui/ncnn-assets/tree/master/models
-	if (yolov5.load_param("../yolov5s.ncnn.param"))
+	if (yolov5.load_param("../models/yolov5s.ncnn.param"))
 		exit(-1);
-	if (yolov5.load_model("../yolov5s.ncnn.bin"))
+	if (yolov5.load_model("../models/yolov5s.ncnn.bin"))
 		exit(-1);
 
 	const int target_size = 640;
@@ -451,121 +451,12 @@ int main(int argc, char** argv)
         }
 		if (img.empty())
 			break;
-
-		int img_w = img.cols;
-		int img_h = img.rows;
-
-		// letterbox pad to multiple of MAX_STRIDE
-		int w = img_w;
-		int h = img_h;
-		float scale = 1.f;
-		if (w > h)
-		{
-			scale = (float)target_size / w;
-			w = target_size;
-			h = h * scale;
-		}
-		else
-		{
-			scale = (float)target_size / h;
-			h = target_size;
-			w = w * scale;
-		}
-		ncnn::Mat in = ncnn::Mat::from_pixels_resize(img.data, ncnn::Mat::PIXEL_BGR2RGB, img_w, img_h, w, h);
-		int wpad = (w + MAX_STRIDE - 1) / MAX_STRIDE * MAX_STRIDE - w;
-		int hpad = (h + MAX_STRIDE - 1) / MAX_STRIDE * MAX_STRIDE - h;
-
-		int top = hpad / 2;
-		int bottom = hpad - hpad / 2;
-		int left = wpad / 2;
-		int right = wpad - wpad / 2;
-
-		ncnn::Mat in_pad;
-		ncnn::copy_make_border(in,
-			in_pad,
-			top,
-			bottom,
-			left,
-			right,
-			ncnn::BORDER_CONSTANT,
-			114.f);
-
-		const float norm_vals[3] = { 1 / 255.f, 1 / 255.f, 1 / 255.f };
-		in_pad.substract_mean_normalize(0, norm_vals);
-		auto start = chrono::system_clock::now();
-
 		std::vector<Object> objects;
-
-		ex.input("in0", in_pad);
-
-		std::vector<Object> proposals;
-
-		// anchor setting from yolov5/models/yolov5s.yaml
-
-		// stride 8
-		{
-			ncnn::Mat out;
-			ex.extract("out0", out);
-
-			ncnn::Mat anchors(6);
-			anchors[0] = 10.f;
-			anchors[1] = 13.f;
-			anchors[2] = 16.f;
-			anchors[3] = 30.f;
-			anchors[4] = 33.f;
-			anchors[5] = 23.f;
-
-			std::vector<Object> objects8;
-			generate_proposals(anchors, 8, out, prob_threshold, objects8);
-
-			proposals.insert(proposals.end(), objects8.begin(), objects8.end());
-		}
-
-		// stride 16
-		{
-			ncnn::Mat out;
-
-			ex.extract("out1", out);
-
-			ncnn::Mat anchors(6);
-			anchors[0] = 30.f;
-			anchors[1] = 61.f;
-			anchors[2] = 62.f;
-			anchors[3] = 45.f;
-			anchors[4] = 59.f;
-			anchors[5] = 119.f;
-
-			std::vector<Object> objects16;
-			generate_proposals(anchors, 16, out, prob_threshold, objects16);
-
-			proposals.insert(proposals.end(), objects16.begin(), objects16.end());
-		}
-
-		// stride 32
-		{
-			ncnn::Mat out;
-
-			ex.extract("out2", out);
-
-			ncnn::Mat anchors(6);
-			anchors[0] = 116.f;
-			anchors[1] = 90.f;
-			anchors[2] = 156.f;
-			anchors[3] = 198.f;
-			anchors[4] = 373.f;
-			anchors[5] = 326.f;
-
-			std::vector<Object> objects32;
-			generate_proposals(anchors, 32, out, prob_threshold, objects32);
-
-			proposals.insert(proposals.end(), objects32.begin(), objects32.end());
-		}
-
-		non_max_suppression(proposals, objects,
-			img_h, img_w, hpad / 2, wpad / 2,
-			scale, scale, prob_threshold, nms_threshold);
-			
-		// std::cout << "object: " << objects <<std::endl;
+		auto start = chrono::system_clock::now();
+		detect_yolov5(img, objects);
+		auto end_ = chrono::system_clock::now();
+        int total_ms_ = chrono::duration_cast<chrono::milliseconds>(end_ - start).count();
+		std::cout << "Yolo Process Time: " << total_ms_ <<std::endl;
 		vector<STrack> output_stracks = tracker.update(objects);
 
 		auto end = chrono::system_clock::now();
